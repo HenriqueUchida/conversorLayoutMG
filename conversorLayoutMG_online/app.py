@@ -101,6 +101,43 @@ if file_controller and file_mg:
             controller = pd.read_excel(file_controller)
             mg = pd.read_excel(file_mg)
 
+            # 1.1 Validação do cabeçalho da MG
+            colunas_esperadas_mg = {
+                "EAN", "NCM_Valido", "EX", "% do IVA",
+                "ALIQUOTA_ICMS", "REDUCAO_ICMS", "CST_ICMS",
+                "ALIQUOTA_PIS", "CST_PIS", "ALIQUOTA_COFINS",
+                "CST_COFINS", "NATUREZA RECEITA",
+            }
+            # Normaliza o cabeçalho recebido (remove espaços/tabs/newlines)
+            colunas_mg_norm = set(
+                mg.columns.str.strip()
+                .str.replace("\t", "", regex=False)
+                .str.replace("\n", "", regex=False)
+            )
+            faltando = colunas_esperadas_mg - colunas_mg_norm
+            if faltando:
+                colunas_fmt = "\n".join(f"- `{c}`" for c in sorted(faltando))
+                st.error(
+                    "❌ **Cabeçalho da planilha MG inválido.**\n\n"
+                    "As seguintes colunas esperadas não foram encontradas:\n\n"
+                    f"{colunas_fmt}\n\n"
+                    "Verifique se o cabeçalho foi ajustado manualmente antes do upload."
+                )
+                st.stop()
+
+            # 1.2 Validação do cabeçalho da Controller
+            colunas_esperadas_ctrl = {"EAN", "PRODUTO_ATIVO", "PR_NOME"}
+            faltando_ctrl = colunas_esperadas_ctrl - set(controller.columns)
+            if faltando_ctrl:
+                colunas_fmt = "\n".join(f"- `{c}`" for c in sorted(faltando_ctrl))
+                st.error(
+                    "❌ **Cabeçalho da planilha Controller inválido.**\n\n"
+                    "As seguintes colunas esperadas não foram encontradas:\n\n"
+                    f"{colunas_fmt}\n\n"
+                    "Verifique se o arquivo correto foi enviado."
+                )
+                st.stop()
+
             # 2. Duplicados na MG
             duplicados = mg[mg["EAN"].duplicated(keep=False)]
 
