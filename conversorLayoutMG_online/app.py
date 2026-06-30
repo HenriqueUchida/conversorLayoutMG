@@ -77,6 +77,7 @@ A planilha enviada pela contabilidade precisa ter o cabeçalho ajustado com **ex
 | Coluna na planilha MG | Significado | Vira no cadastro |
 |---|---|---|
 | `EAN` | Código de barras do produto | chave de cruzamento |
+| `NCM` | NCM_antigo | `Coluna não usada, pode até ser deletada` |
 | `NCM_Valido` | NCM validado | `NCM` |
 | `EX` | Exceção da TIPI | `NCM_EX` |
 | `% do IVA` | Percentual de MVA / IVA-ST | `MVA` |
