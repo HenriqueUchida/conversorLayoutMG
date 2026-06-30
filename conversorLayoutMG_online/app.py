@@ -67,6 +67,39 @@ st.markdown("""
 st.markdown("# 📊 Conversor Layout MG")
 st.markdown('<p class="subtitulo">Atualiza a planilha Controller com os dados fiscais enviados pela MG.</p>', unsafe_allow_html=True)
 
+# ── Documentação dos campos da MG ───────────────────────────────────────────
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+with st.expander("📋 Campos obrigatórios na planilha MG (clique para ver)"):
+    st.markdown("""
+A planilha enviada pela contabilidade precisa ter o cabeçalho ajustado com **exatamente** estes nomes de coluna:
+
+| Coluna na planilha MG | Significado | Vira no cadastro |
+|---|---|---|
+| `EAN` | Código de barras do produto | chave de cruzamento |
+| `NCM_Valido` | NCM validado | `NCM` |
+| `EX` | Exceção da TIPI | `NCM_EX` |
+| `% do IVA` | Percentual de MVA / IVA-ST | `MVA` |
+| `ALIQUOTA_ICMS` | Alíquota de ICMS na saída | `SNC_ALQ` |
+| `REDUCAO_ICMS` | Redução de base de ICMS | `SNC_RBC` |
+| `CST_ICMS` | CST de ICMS na saída | `SNC_CST` |
+| `ALIQUOTA_PIS` | Alíquota de PIS na saída | `PIS_ALQ_S` |
+| `CST_PIS` | CST de PIS na saída | `PIS_CST_S` |
+| `ALIQUOTA_COFINS` | Alíquota de COFINS na saída | `COFINS_ALQ_S` |
+| `CST_COFINS` | CST de COFINS na saída | `COFINS_CST_S` |
+| `NATUREZA RECEITA` | Código da natureza da receita | `COD_NATUREZA_RECEITA` |
+
+Colunas extras na planilha (ex: descrição, CST de entrada, cBenef) podem ficar com o nome original — são ignoradas pelo processamento.
+
+**Regras de validação aplicadas automaticamente, por CST de ICMS (`CST_ICMS`):**
+- **00 — Tributado:** `ALIQUOTA_ICMS` deve ser maior que zero.
+- **20 — Redução de base:** `ALIQUOTA_ICMS` e `REDUCAO_ICMS` devem ser maiores que zero.
+- **40 — Isento:** `ALIQUOTA_ICMS` e `REDUCAO_ICMS` devem ser iguais a zero.
+- **60 — Substituição tributária:** sem exigência (alíquota e redução são opcionais).
+
+Linhas com EAN duplicado, campos obrigatórios vazios, ou que não atendam às regras acima são automaticamente separadas em um arquivo de **inconsistências** para devolver à contabilidade.
+""")
+
 # ── Uploads ─────────────────────────────────────────────────────────────────
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -138,9 +171,6 @@ if file_controller and file_mg:
                 )
                 st.stop()
 
-            # 2. Duplicados na MG
-            duplicados = mg[mg["EAN"].duplicated(keep=False)]
-
             # 3. EAN_CHAVE
             controller["EAN_CHAVE"] = (
                 controller["EAN"].astype(str).str.strip().str.zfill(14)
@@ -175,6 +205,69 @@ if file_controller and file_mg:
                 .str.replace("\n", "", regex=False)
             )
             mg = mg.rename(columns=mapa_colunas)
+
+            # 5.1 Validação de nulos e coerência fiscal (CST x ALQ x RBC)
+            colunas_obrigatorias = list(mapa_colunas.values())
+            inconsistencias = []  # lista de dicts: EAN, EAN_CHAVE, motivo
+
+            def registrar(linha, motivo):
+                inconsistencias.append({
+                    "EAN": linha.get("EAN", ""),
+                    "EAN_CHAVE": linha.get("EAN_CHAVE", ""),
+                    "Motivo": motivo,
+                })
+
+            eans_invalidos = set()
+
+            # (a0) EANs duplicados na MG
+            duplicados = mg[mg["EAN_CHAVE"].duplicated(keep=False)]
+            for _, linha in duplicados.iterrows():
+                registrar(linha, "EAN duplicado na planilha MG")
+                eans_invalidos.add(linha["EAN_CHAVE"])
+
+            # (a) Campos nulos nas colunas obrigatórias
+            for col in colunas_obrigatorias:
+                if col not in mg.columns:
+                    continue
+                nulos = mg[mg[col].isna() & ~mg["EAN_CHAVE"].isin(eans_invalidos)]
+                for _, linha in nulos.iterrows():
+                    registrar(linha, f"Campo obrigatório vazio: {col}")
+                    eans_invalidos.add(linha["EAN_CHAVE"])
+
+            # (b) Coerência fiscal por CST de ICMS (SNC_CST)
+            #   00 - Tributado integralmente   -> SNC_ALQ > 0
+            #   20 - Redução de base            -> SNC_ALQ > 0 e SNC_RBC > 0
+            #   40 - Isento                     -> SNC_ALQ == 0 e SNC_RBC == 0
+            #   60 - Substituição tributária     -> sem exigência (opcional)
+            if {"SNC_CST", "SNC_ALQ", "SNC_RBC"}.issubset(mg.columns):
+                mg_valido = mg[~mg["EAN_CHAVE"].isin(eans_invalidos)]
+                for _, linha in mg_valido.iterrows():
+                    cst = str(linha["SNC_CST"]).strip().replace(".0", "")
+                    alq = pd.to_numeric(linha["SNC_ALQ"], errors="coerce")
+                    rbc = pd.to_numeric(linha["SNC_RBC"], errors="coerce")
+
+                    if cst == "00":
+                        if pd.isna(alq) or alq <= 0:
+                            registrar(linha, "CST 00 (Tributado) exige SNC_ALQ > 0")
+                            eans_invalidos.add(linha["EAN_CHAVE"])
+
+                    elif cst == "20":
+                        if pd.isna(alq) or alq <= 0 or pd.isna(rbc) or rbc <= 0:
+                            registrar(linha, "CST 20 (Redução) exige SNC_ALQ > 0 e SNC_RBC > 0")
+                            eans_invalidos.add(linha["EAN_CHAVE"])
+
+                    elif cst == "40":
+                        if (not pd.isna(alq) and alq != 0) or (not pd.isna(rbc) and rbc != 0):
+                            registrar(linha, "CST 40 (Isento) exige SNC_ALQ = 0 e SNC_RBC = 0")
+                            eans_invalidos.add(linha["EAN_CHAVE"])
+
+                    # CST 60 (Substituto) — sem exigência, é opcional
+
+            df_inconsistencias = pd.DataFrame(inconsistencias)
+
+            # Remove do fluxo principal as linhas inconsistentes
+            if eans_invalidos:
+                mg = mg[~mg["EAN_CHAVE"].isin(eans_invalidos)].copy()
 
             # 6. Merge
             df_final = controller.merge(
@@ -264,22 +357,18 @@ if file_controller and file_mg:
             total_ctrl = len(controller)
             total_alt  = len(alterados_excel)
             total_nalt = len(nao_alterados)
+            total_inc  = len(df_inconsistencias)
 
             st.markdown(f"""
             <div class="stat-row">
                 <div class="stat"><div class="num">{total_ctrl:,}</div><div class="lbl">Produtos na Controller</div></div>
-                <div class="stat"><div class="num">{total_mg:,}</div><div class="lbl">Enviados pela MG</div></div>
+                <div class="stat"><div class="num">{total_mg:,}</div><div class="lbl">Válidos da MG</div></div>
                 <div class="stat"><div class="num">{total_alt:,}</div><div class="lbl">Serão atualizados</div></div>
-                <div class="stat"><div class="num">{total_nalt:,}</div><div class="lbl">Sem atualização</div></div>
+                <div class="stat"><div class="num">{total_inc:,}</div><div class="lbl">Inconsistentes (MG)</div></div>
             </div>
             """, unsafe_allow_html=True)
 
             # Alertas
-            if len(duplicados) > 0:
-                st.markdown(f'<div class="alerta">⚠️ <strong>{len(duplicados)} EANs duplicados</strong> encontrados na planilha MG.</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="ok">✅ Nenhum EAN duplicado na planilha MG.</div>', unsafe_allow_html=True)
-
             if len(nao_encontrados) > 0:
                 st.markdown(f'<div class="alerta">⚠️ <strong>{len(nao_encontrados)} produto(s)</strong> da MG não encontrados na Controller.</div>', unsafe_allow_html=True)
                 with st.expander("Ver produtos não encontrados"):
@@ -289,6 +378,12 @@ if file_controller and file_mg:
 
             if ativos_nao_alterados > 0:
                 st.markdown(f'<div class="alerta">⚠️ <strong>{ativos_nao_alterados} produto(s) ativo(s)</strong> não terão atualização fiscal.</div>', unsafe_allow_html=True)
+
+            if len(df_inconsistencias) > 0:
+                st.markdown(f'<div class="alerta">⚠️ <strong>{len(df_inconsistencias)} inconsistência(s)</strong> encontradas na planilha MG (EAN duplicado, campo vazio, ou alíquota/redução incoerente com o CST). Essas linhas foram <strong>removidas do processamento</strong> e precisam ser corrigidas pela contabilidade.</div>', unsafe_allow_html=True)
+                st.dataframe(df_inconsistencias.reset_index(drop=True), use_container_width=True)
+            else:
+                st.markdown('<div class="ok">✅ Nenhuma inconsistência encontrada na planilha MG.</div>', unsafe_allow_html=True)
 
             # ── Downloads ───────────────────────────────────────────────────
             st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
@@ -336,6 +431,15 @@ if file_controller and file_mg:
                     "📥 Não Atualizados (.xlsx)",
                     data=to_excel_bytes(nao_alterados),
                     file_name=f"nao_alterados_{data_hoje}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+
+            if len(df_inconsistencias) > 0:
+                st.download_button(
+                    "📥 Inconsistências para devolver à contabilidade (.xlsx)",
+                    data=to_excel_bytes(df_inconsistencias),
+                    file_name=f"inconsistencias_{data_hoje}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
