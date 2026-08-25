@@ -88,11 +88,9 @@ A planilha enviada pela contabilidade precisa ter o cabeçalho ajustado com **ex
 | `CST_PIS` | CST de PIS na saída | `PIS_CST_S` |
 | `ALIQUOTA_COFINS` | Alíquota de COFINS na saída | `COFINS_ALQ_S` |
 | `CST_COFINS` | CST de COFINS na saída | `COFINS_CST_S` |
-| `CEST_S` | CEST de Saída | `CEST_S` |
-| `CBENEF` | Código CEBENF de Saída | `SNC_CBENEF` |
+| `NATUREZA RECEITA` | Código da natureza da receita | `COD_NATUREZA_RECEITA` |
 
-
-Colunas extras na planilha (ex: descrição, CST de entrada e outras que não aparecem acima) podem ficar com o nome original — são ignoradas pelo processamento.
+Colunas extras na planilha (ex: descrição, CST de entrada, cBenef) podem ficar com o nome original — são ignoradas pelo processamento.
 
 **Regras de validação aplicadas automaticamente, por CST de ICMS (`CST_ICMS`):**
 - **00 — Tributado:** `ALIQUOTA_ICMS` deve ser maior que zero.
@@ -142,7 +140,7 @@ if file_controller and file_mg:
                 "EAN", "NCM_Valido", "EX", "% do IVA",
                 "ALIQUOTA_ICMS", "REDUCAO_ICMS", "CST_ICMS",
                 "ALIQUOTA_PIS", "CST_PIS", "ALIQUOTA_COFINS",
-                "CST_COFINS", "NATUREZA RECEITA", "CEST_S","CBENEF_S"
+                "CST_COFINS", "NATUREZA RECEITA",
             }
             # Normaliza o cabeçalho recebido (remove espaços/tabs/newlines)
             colunas_mg_norm = set(
@@ -201,8 +199,6 @@ if file_controller and file_mg:
                 "ALIQUOTA_COFINS": "COFINS_ALQ_S",
                 "CST_COFINS": "COFINS_CST_S",
                 "NATUREZA RECEITA": "COD_NATUREZA_RECEITA",
-                "CEST_S":"CEST_S",
-                "CBENEF_S":"SNC_CBENEF",
             }
             mg.columns = (
                 mg.columns.str.strip()
@@ -291,7 +287,7 @@ if file_controller and file_mg:
                  "NCM_EX", "PIS_CST_E", "PIS_ALQ_E", "COFINS_CST_E", "COFINS_ALQ_E",
                  "PIS_CST_S", "PIS_ALQ_S", "COFINS_CST_S", "COFINS_ALQ_S",
                  "COD_NATUREZA_CREDITO", "COD_NATUREZA_RECEITA", "IPI_VALOR",
-                 "UF_FCP", "ALQ_FCP", "ALQ_FCPST", "CEST_E", "EI_CBENEF", "CEST_S", "SNC_CBENEF"],
+                 "UF_FCP", "ALQ_FCP", "ALQ_FCPST"],
             ].copy()
             nao_alterados["NCM"] = (
                 nao_alterados["NCM"].astype(str)
@@ -312,7 +308,7 @@ if file_controller and file_mg:
                  "NCM", "NCM_NOVO", "NCM_EX", "NCM_EX_NOVO",
                  "PIS_CST_S", "PIS_CST_S_NOVO", "PIS_ALQ_S", "PIS_ALQ_S_NOVO",
                  "COFINS_CST_S", "COFINS_CST_S_NOVO", "COFINS_ALQ_S", "COFINS_ALQ_S_NOVO",
-                 "COD_NATUREZA_RECEITA", "COD_NATUREZA_RECEITA_NOVO", "CEST_S_NOVO", "SNC_CBENEF_NOVO"],
+                 "COD_NATUREZA_RECEITA", "COD_NATUREZA_RECEITA_NOVO"],
             ].copy()
             alterados_excel["NCM"] = (
                 alterados_excel["NCM"].astype(str)
