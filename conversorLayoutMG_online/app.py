@@ -89,7 +89,7 @@ A planilha enviada pela contabilidade precisa ter o cabeçalho ajustado com **ex
 | `ALIQUOTA_COFINS` | Alíquota de COFINS na saída | `COFINS_ALQ_S` |
 | `CST_COFINS` | CST de COFINS na saída | `COFINS_CST_S` |
 | `CEST_S` | CEST de Saída | `CEST_S` |
-| `CBENEF_S` | Código CEBENF de Saída | `CBENEF_S` |
+| `CBENEF` | Código CEBENF de Saída | `SNC_CBENEF` |
 
 
 Colunas extras na planilha (ex: descrição, CST de entrada e outras que não aparecem acima) podem ficar com o nome original — são ignoradas pelo processamento.
