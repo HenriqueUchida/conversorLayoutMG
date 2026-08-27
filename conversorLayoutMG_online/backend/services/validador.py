@@ -1,11 +1,11 @@
-from pathlib import Path
-from typing import Union
-import io
-import pandas as pd
+def validar_cabecalho(cabecalho, campos_obrigatorios):
 
+    colunas_reais = {str(col).strip().upper() for col in cabecalho}
 
-def carregarPlanilhas(origem: Union[str, Path, io.BytesIO], dtypes: dict) -> pd.DataFrame:
-    if not origem.exists():
-        raise FileNotFoundError(f"Arquivo local não encontrado: {origem.resolve()}")
+    campos_faltantes = [
+        campo
+        for campo in campos_obrigatorios
+        if str(campo).strip().upper() not in colunas_reais
+    ]
 
-    return pd.read_excel(origem, dtype=dtypes)
+    return campos_faltantes
