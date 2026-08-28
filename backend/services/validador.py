@@ -9,3 +9,6 @@ def validar_cabecalho(cabecalho, campos_obrigatorios):
     ]
 
     return campos_faltantes
+
+def valida_ean(data_frame): 
+    pass
