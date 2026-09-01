@@ -31,6 +31,10 @@ btnEnviar.addEventListener('click', async () =>{
         const resultado = await response.json();
         console.log(resultado)
 
+        if(response.ok){
+            console.log('chamar a segunda rota')
+        }
+
     } catch (erro) {
         console.error(erro);
         alert('Não foi possível enviar arquivos')

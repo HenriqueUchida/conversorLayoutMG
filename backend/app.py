@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes.processar import router as processamento_router
+from routes.validaCabecalho import router as processamento_router
 
 
 app = FastAPI()

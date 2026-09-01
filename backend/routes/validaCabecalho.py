@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File
+from fastapi import HTTPException
 import pandas as pd
 
 from services.validador import validar_cabecalho
@@ -30,14 +31,10 @@ async def processar(
     )
 
     if faltantes_mg or faltantes_controller:
-
-        return {
-            "sucesso": False,
-            "erros": {
-                "mg": faltantes_mg,
-                "controller": faltantes_controller
-            }
-        }
+        raise HTTPException (
+            status_code = 422,
+            detail= {"mg": faltantes_mg, "controller": faltantes_controller}
+        )   
 
     return {
         "sucesso": True,
