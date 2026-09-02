@@ -11,8 +11,8 @@ from layouts.layouts import (
 router = APIRouter()
 
 
-@router.post("/processar")
-async def processar(
+@router.post("/validar_layout")
+async def validar_layout(
     arquivo_mg: UploadFile = File(...),
     arquivo_controller: UploadFile = File(...)
 ):
