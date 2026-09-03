@@ -17,7 +17,7 @@ async function enviarPlanilhas(url, arqMg, arqController){
         const corpoErro = await response.json();
         const erro = new Error("Falha na requisição");
         erro.status = response.status;
-        erro.detail = corpoErro.detail.Error
+        erro.detail = corpoErro.detail
         throw erro;
     }
 

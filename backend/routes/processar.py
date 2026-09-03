@@ -5,7 +5,7 @@ import pandas as pd
 router = APIRouter()
 
 @router.post("/processar")
-async def validar_ean(
+async def orquestrador(
     arquivo_mg: UploadFile = File(...),
     arquivo_controller: UploadFile = File(...)
 ):

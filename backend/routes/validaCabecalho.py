@@ -17,16 +17,16 @@ async def validar_layout(
     arquivo_controller: UploadFile = File(...)
 ):
 
-    df_mg = pd.read_excel(arquivo_mg.file)
-    df_controller = pd.read_excel(arquivo_controller.file)
+    df_mg = pd.read_excel(arquivo_mg.file, nrows=0)
+    df_controller = pd.read_excel(arquivo_controller.file, nrows=0)
 
     faltantes_mg = validar_cabecalho(
-        df_mg.columns.str.strip(),
+        df_mg.columns,
         CAMPOS_OBRIGATORIOS_MG
     )
 
     faltantes_controller = validar_cabecalho(
-        df_controller.columns.str.strip(),
+        df_controller.columns,
         CAMPOS_OBRIGATORIOS_CONTROLLER
     )
 
